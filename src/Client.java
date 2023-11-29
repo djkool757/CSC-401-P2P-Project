@@ -6,36 +6,23 @@ import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Client {
-    private ArrayList<RFC> rfcIndex;
-    private String serverHost = "127.0.0.1"; // Use localhost
-    private int serverPort = 7734;
-    private String peerHostname;
-    private int peerPort;
+    private static ArrayList<RFC> rfcIndex;
+    private static int serverPort = 7734;
+    private static int peerPort;
+    private static String serverHost;
     private ServerSocket uploadServerSocket;
 
-    public Client(String peerHostname, ArrayList<RFC> rfcIndex) throws IOException {
-        this.peerHostname = peerHostname;
-        this.rfcIndex = rfcIndex;
-
-        ServerSocket serverSocket = new ServerSocket(0);
-        peerPort = serverSocket.getLocalPort();
-        uploadServerSocket = serverSocket;
+    public Client(String serverHost, int peerPort, ArrayList<RFC> rfcIndex) throws IOException {
+        Client.serverHost = serverHost;
+        Client.rfcIndex = rfcIndex;
+        uploadServerSocket = new ServerSocket(peerPort);
         new Thread(this::runUploadServer).start();
     }
 
-    private static void joinP2PSystem() throws UnknownHostException, IOException {
-        try (Socket socket = new Socket(serverHost, serverPort);
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-
+    private static void joinP2PSystem(String serverIP) throws UnknownHostException, IOException {
             Scanner scanner = new Scanner(System.in);
-
-            System.out.print("Enter peer hostname: ");
-            String peerHostname = scanner.nextLine();
-            // Assuming the user provides peer port and RFC information
             System.out.print("Enter peer port: ");
             int peerPort = Integer.parseInt(scanner.nextLine());
-
             rfcIndex = new ArrayList<>();
             // Assuming the user provides information about RFCs
             System.out.print("Enter number of RFCs: ");
@@ -50,12 +37,17 @@ public class Client {
                 System.out.print("Enter RFC title for RFC " + (i + 1) + ": ");
                 String rfcTitle = scanner.nextLine();
                 // Assuming you have an RFC constructor that takes number, title, and hostname
-                RFC rfc = new RFC(rfcNumber, rfcTitle, peerHostname);
+                RFC rfc = new RFC(rfcNumber, rfcTitle, InetAddress.getLocalHost().getHostName());
                 rfcIndex.add(rfc);
             }
-            new Client(peerHostname, rfcIndex);
+            new Client(InetAddress.getLocalHost().getHostName(), peerPort, rfcIndex);
+            try (Socket socket = new Socket(serverIP, serverPort))
+             {
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            
         }
-    }
 
     private void runUploadServer() {
         try {
@@ -69,7 +61,7 @@ public class Client {
         }
     }
 
-    private void handleGetRequest(Socket clientSocket) {
+    void handleGetRequest(Socket clientSocket) {
         try (PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
 
@@ -89,7 +81,6 @@ public class Client {
 
             // Extract the RFC number from the request line
             int rfcNumber = Integer.parseInt(requestLine.split(" ")[2]);
-
             // Send the RFC to the client
             sendRFC(out, rfcNumber);
 
@@ -123,6 +114,14 @@ public class Client {
     }
 
     public static void main(String[] args) throws IOException {
-            joinP2PSystem();
-}
+        if (args.length!= 1) {
+            System.out.println("Usage: java Client <server IP address>");
+            System.exit(1);
+        }
+        String givenIP = args[0];
+        Scanner s = new Scanner(System.in);
+
+        joinP2PSystem(givenIP);
+        
+    }
 }

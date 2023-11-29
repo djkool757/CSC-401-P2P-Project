@@ -42,6 +42,7 @@ public class Server {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                     BufferedWriter writer = new BufferedWriter(
                             new OutputStreamWriter(clientSocket.getOutputStream()))) {
+                 handleNewClient(clientSocket);
                 String requestLine = reader.readLine();
                 if (requestLine != null && requestLine.startsWith("INIT")) {
                     handleInitialRFC(reader);
@@ -58,6 +59,15 @@ public class Server {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+
+        public void handleNewClient(Socket client) {
+            // Get the client's hostname
+            String hostname = client.getInetAddress().getHostName();
+            // Log the hostname
+            System.out.println("New client connected: " + hostname);
+            // Add the hostname to the peerList
+            peerList.add(new Peer(hostname, client.getPort()));
         }
     }
 
@@ -78,8 +88,6 @@ public class Server {
 
         // Add records to the linked lists
         rfcIndex.add(rfcInfo);
-        peerList.add(peerInfo);
-
         // Send response to client
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 

@@ -1,66 +1,93 @@
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
 import java.io.*;
+import java.net.Socket;
 import java.util.ArrayList;
 
 public class ClientTest {
     private Client client;
-    private ByteArrayOutputStream outputStream;
-    private ByteArrayInputStream inputStream;
+    private ArrayList<RFC> rfcIndex;
 
     @Before
-    public void setUp() {
-        ArrayList<RFC> rfcIndex = new ArrayList<>();
-        rfcIndex.add(new RFC(1, "RFC 1", "localhost"));
-        rfcIndex.add(new RFC(2, "RFC 2", "localhost"));
-        rfcIndex.add(new RFC(3, "RFC 3", "localhost"));
+    public void setup() throws IOException {
+        rfcIndex = new ArrayList<>();
         client = new Client("localhost", rfcIndex);
-        outputStream = new ByteArrayOutputStream();
-        inputStream = new ByteArrayInputStream("Test Response".getBytes());
     }
 
     @Test
-public void testJoinP2PSystem() throws IOException {
-    // Setup
-    ArrayList<RFC> rfcIndex = new ArrayList<>();
-    rfcIndex.add(new RFC(1, "RFC 1", "localhost"));
-    Client client = new Client("localhost", rfcIndex);
-    // Execute
-    client.joinP2PSystem();
+    public void testHandleGetRequestValidRFC() throws IOException {
+        Socket clientSocket = new Socket();
+        BufferedReader in = new BufferedReader(new StringReader("GET /RFC 1234 P2P-CI/1.0\r\n"));
+        PrintWriter out = new PrintWriter(new ByteArrayOutputStream());
+        when(clientSocket.getInputStream()new ByteArrayInputStream("".getBytes()));
+        clientSocket.getInputStream().
+        when(clientSocket.getOutputStream()).thenReturn(new ByteArrayOutputStream());
 
-    // Verify
-    assertEquals("P2P-CI/1.0 200 OK", outputStream.toString().trim());
-}
+        client.handleGetRequest(clientSocket);
 
-@Test
-public void testSendRFC() throws IOException {
-    // Setup
-    ArrayList<RFC> rfcIndex = new ArrayList<>();
-    rfcIndex.add(new RFC(1, "RFC 1", "localhost"));
-    Client client = new Client("localhost", rfcIndex);
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        verify(out).println("P2P-CI/1.0 200 OK");
+        verify(out).println("Content-Type: text/text");
+        verify(out).println("Sample RFC");
+    }
 
-    // Execute
-    client.sendRFC(new PrintWriter(outputStream, true), 1);
+    @Test
+    public void testHandleGetRequestInvalidRFC() throws IOException {
+        Socket clientSocket = mock(Socket.class);
+        BufferedReader in = new BufferedReader(new StringReader("GET /RFC 5678 P2P-CI/1.0\r\n"));
+        PrintWriter out = mock(PrintWriter.class);
+        when(clientSocket.getInputStream()).thenReturn(new ByteArrayInputStream("".getBytes()));
+        when(clientSocket.getOutputStream()).thenReturn(new ByteArrayOutputStream());
 
-    // Verify
-    assertTrue(outputStream.toString().contains("P2P-CI/1.0 200 OK"));
-}
+        client.handleGetRequest(clientSocket);
 
-@Test
-public void testGetRFC() throws IOException {
-    // Setup
-    ArrayList<RFC> rfcIndex = new ArrayList<>();
-    rfcIndex.add(new RFC(1, "RFC 1", "localhost"));
-    Client client = new Client("localhost", rfcIndex);
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    // Execute
-    client.getRFC(1, "localhost", "Windows");
+        verify(out).println("404 Not Found");
+    }
 
-    // Verify
-    assertTrue(outputStream.toString().contains("GET RFC 1 P2P-CI/1.0"));
-}
+    @Test
+    public void testSendRFCValidRFC() {
+        PrintWriter out = mock(PrintWriter.class);
+        RFC rfc = new RFC(1234, "Sample RFC", "localhost");
+
+        client.sendRFC(out, 1234);
+
+        verify(out).println("P2P-CI/1.0 200 OK");
+        verify(out).println("Content-Type: text/text");
+        verify(out).println("Sample RFC");
+    }
+
+    @Test
+    public void testSendRFCInvalidRFC() {
+        PrintWriter out = mock(PrintWriter.class);
+
+        client.sendRFC(out, 5678);
+
+        verify(out).println("404 Not Found");
+    }
+
+    @Test
+    public void testGetRFCByNumberValidRFC() {
+        RFC rfc1 = new RFC(1234, "Sample RFC 1", "localhost");
+        RFC rfc2 = new RFC(5678, "Sample RFC 2", "localhost");
+        rfcIndex.add(rfc1);
+        rfcIndex.add(rfc2);
+
+        RFC result = client.getRFCByNumber(1234);
+
+        assertEquals(rfc1, result);
+    }
+
+    @Test
+    public void testGetRFCByNumberInvalidRFC() {
+        RFC rfc1 = new RFC(1234, "Sample RFC 1", "localhost");
+        RFC rfc2 = new RFC(5678, "Sample RFC 2", "localhost");
+        rfcIndex.add(rfc1);
+        rfcIndex.add(rfc2);
+
+        RFC result = client.getRFCByNumber(9999);
+
+        assertNull(result);
+    }
 }
