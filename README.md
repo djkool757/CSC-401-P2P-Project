@@ -1,25 +1,12 @@
 # CSC-401-P2P-Project
 NCSU CSC-401 Project 1 
-1/4
-CSC 401 – Data and Computer Communications Networks
-Project #1
-Spring 2023
-Project Objectives
-In this project, you will implement a simple peer-to-peer (P2P) system with a centralized index (CI). Although this
-P2P-CI system is rather elementary, in the process I expect that you will develop a good understanding of P2P and
-client-server systems and build a number of fundamental skills related to writing Internet applications, including:
-• becoming familiar with network programming and the socket interface,
-• creating server processes that wait for connections,
-• creating client processes that contact a well-known server and exchange data over the Internet,
-• defining a simple application protocol and making sure that peers and server follow precisely the
-specifications for their side of the protocol in order to accomplish particular tasks,
-• creating and managing a centralized index at the server based on information provided by the peers, and
-• implementing a concurrent server that is capable of carrying out communication with multiple clients
-simultaneously.
-Peer-to-Peer with Centralized Index (P2P-CI) System for Downloading RFCs
-Internet protocol standards are defined in documents called “Requests for Comments” (RFCs). RFCs are available
-for download from the IETF web site (http://www.ietf.org/). Rather than using this centralized server for
-downloading RFCs, you will build a P2P-CI system in which peers who wish to download an RFC that they do not
-have in their hard drive, may download it from another active peer who does. All communication among peers or
-between a peer and the server will take place over TCP. Specifically, the P2P-CI system will operate as follows;
-additional details on each component of the system will be provided shortly.
+How the System should work:
+  1. Start the Server
+  2. After compiling the Client, enter the port you intend to use for the P2P portion
+  3. You will be presented will the options of:  ADD, LOOKUP, LIST, GET, and EXIT
+  4. If you enter ADD:  you must then enter the RFC Number you want to add into the server, then enter the title of the RFC
+  5. If you enter LOOKUP: you must then enter the RFC Number you want to search for within the server, then enter the title of the RFC
+  6. If you enter LIST: The server will present you with all the RFC's currently within the system.
+  7. If you enter GET: You must present the peer's hostname, RFC number, and the host's OS
+  8. If you enter EXIT: The connection will be closed to the Server
+  9. If you dont enter any of these commands, you will be prompted with the message of "Invalid command. Please try again."
