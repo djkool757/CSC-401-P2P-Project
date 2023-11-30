@@ -3,6 +3,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import java.io.*;
 import java.net.Socket;
+import java.util.Map;
 
 public class ServerTest {
     private Server server;
@@ -23,22 +24,67 @@ public class ServerTest {
     }
 
     @Test
+    public void testHandleGetValidRFC() throws IOException {
+        setInput("GET\r\n" +
+                "RFC 1234 P2P-CI/1.0\r\n" +
+                "Host: localhost\r\n" +
+                "Port: 12345\r\n");
+
+        // Create a temporary file with the RFC content
+        File tempFile = File.createTempFile("rfc1234", ".txt");
+        FileWriter writer = new FileWriter(tempFile);
+        writer.write("Sample RFC content");
+        writer.close();
+
+        // Mock the FileReader to read from the temporary file
+        Mockito.when(new FileReader("rfc1234.txt")).thenReturn(new FileReader(tempFile));
+
+        String expectedResponse = "P2P-CI/1.0 200 OK\r\n" +
+                "Date: <current date>\r\n" +
+                "OS: <current OS>\r\n" +
+                "Content-Length: 19\r\n" +
+                "Content-Type: text/plain\r\n\r\n" +
+                "Sample RFC content";
+
+        String actualResponse = server.handleGet("1234", inputReader);
+
+        assertEquals(expectedResponse, actualResponse);
+    }
+
+    @Test
+    public void testHandleGetInvalidRFC() throws IOException {
+        setInput("GET\r\n" +
+                "RFC 5678 P2P-CI/1.0\r\n" +
+                "Host: localhost\r\n" +
+                "Port: 12345\r\n");
+
+        String expectedResponse = "P2P-CI/1.0 404 Not Found\r\n\r\n";
+        Map<String, String> headers = server.parseRequest(input);
+
+        String actualResponse = server.handleGet("5679", headers);
+
+        assertEquals(expectedResponse, actualResponse);
+    }
+
+    @Test
     public void testHandleAdd() throws IOException {
         setInput("ADD\r\n" +
                 "RFC 1234 P2P-CI/1.0\r\n" +
                 "Host: localhost\r\n" +
                 "Port: 12345\r\n" +
                 "Title: Sample RFC\r\n");
+        Map<String, String> headers = server.parseRequest(input);
 
-        server.handleAdd(inputReader);
+        server.handleAdd("1234", headers);
 
         assertEquals(1, server.rfcIndex.size());
-        assertEquals(1, server.peerMap.size());
-        assertEquals(-1, server.rfcIndex.get(0).getNumber());
-        assertEquals("Sample", server.rfcIndex.get(0).getTitle());
-        assertEquals("localhost", server.rfcIndex.get(0).getHostname());
-        assertEquals("localhost", server.peerMap.get(0).get(0).getHostname());
-        }
+        assertEquals(1, server.peersList.size());
+        assertEquals(1234, server.rfcIndex.get(0).getRfcNumber());
+        assertEquals("Sample RFC", server.rfcIndex.get(0).getTitle());
+        assertEquals("localhost", server.rfcIndex.get(0).getPeerHostname());
+        assertEquals("localhost", server.peersList.get(0).getHostname());
+        assertEquals(12345, server.peersList.get(0).getUploadPort());
+    }
 
     @Test
     public void testHandleLookupFound() throws IOException {
@@ -48,14 +94,15 @@ public class ServerTest {
                 "Port: 12345\r\n" +
                 "Title: Sample\r\n");
 
-        server.rfcIndex.add ( new RFC(1234, "Sample RFC", "localhost"));
+        server.rfcIndex.add(new RFC(1234, "Sample RFC", "localhost"));
 
-        server.handleLookup(inputReader);
+        String expectedResponse = "P2P-CI/1.0 200 OK\r\n\r\n" +
+                "RFC 1234 Sample RFC localhost 12345";
+        Map<String, String> headers = server.parseRequest(input);
 
-        String response = inputReader.readLine();
-        assertEquals("P2P-CI/1.0 200 OK", response);
-        response = inputReader.readLine();
-        assertEquals("RFC 1234 Sample RFC localhost 12345", response);
+        String actualResponse = server.handleLookup("1234", headers);
+
+        assertEquals(expectedResponse, actualResponse);
     }
 
     @Test
@@ -66,22 +113,32 @@ public class ServerTest {
                 "Port: 12345\r\n" +
                 "Title: Sample RFC\r\n");
 
-        server.handleLookup(inputReader);
+        String expectedResponse = "P2P-CI/1.0 404 Not Found\r\n\r\n";
+        Map<String, String> headers = server.parseRequest(input);
+        String actualResponse = server.handleLookup("1234", headers);
 
-        String response = inputReader.readLine();
-        assertEquals("P2P-CI/1.0 404 Not Found", response);
+        assertEquals(expectedResponse, actualResponse);
     }
 
     @Test
     public void testHandleList() throws IOException {
-        server.handleList();
+        server.rfcIndex.add(new RFC(1234, "Sample RFC 1", "localhost"));
+        server.rfcIndex.add(new RFC(5678, "Sample RFC 2", "localhost"));
 
-        BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        String response = reader.readLine();
-        assertEquals("P2P-CI/1.0 200 OK", response);
-        response = reader.readLine();
-        assertEquals("RFC 1234 Sample RFC 1 localhost", response);
-        response = reader.readLine();
-        assertEquals("RFC 5678 Sample RFC 2 localhost", response);
+        setInput("ADD\r\n" +
+                "RFC 1234 P2P-CI/1.0\r\n" +
+                "Host: localhost\r\n" +
+                "Port: 12345\r\n" +
+                "Title: Sample RFC 1\r\n" +
+                "ADD\r\n" +
+                "RFC 5678 P2P-CI/1.0\r\n" +
+                "Host: localhost\r\n" +
+                "Port: 12345\r\n" +
+                "Title: Sample RFC 2\r\n");
+
+        String expectedResponse = "P2P-CI/1.0 200 OK";
+        Map<String, String> headers = server.parseRequest(input);
+        String actualResponse = server.handleList(headers);
+        assertEquals(expectedResponse, actualResponse);
     }
 }
