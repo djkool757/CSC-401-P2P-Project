@@ -10,8 +10,8 @@ public class Server {
     private String host = "0.0.0.0"; // BE OMNIPRESENT
     private int port = 7734;
     private ServerSocket serverSocket;
-    LinkedList<Peer> peersList; // Client linked list
-    LinkedList<RFC> rfcIndex;  // RFC linked list
+    LinkedList<Peer> peersList;
+    LinkedList<RFC> rfcIndex; 
     private ExecutorService executor;
 
     public Server() {
@@ -249,4 +249,69 @@ public class Server {
         Server server = new Server();
         server.start();
     }
+
+    class Peer {
+        private String hostname;
+        private int uploadPort;
+
+        public Peer(String hostname, int uploadPort) {
+            this.hostname = hostname;
+            this.uploadPort = uploadPort;
+        }
+
+        public String getHostname() {
+            return hostname;
+        }
+
+        public void setHostname(String hostname) {
+            this.hostname = hostname;
+        }
+
+        public int getUploadPort() {
+            return uploadPort;
+        }
+
+        public void setUploadPort(int uploadPort) {
+            this.uploadPort = uploadPort;
+        }
+    }
+
+    /**
+ * Represents a Request for Comments (RFC) document.
+ */
+class RFC {
+    private int rfcNumber;
+    private String title;
+    private String peerHostname;
+     /**
+     * Constructs an RFC object with the specified number, title, and hostname.
+     * 
+     * @param number   the RFC number
+     * @param title    the RFC title
+     * @param hostname the hostname of the server hosting the RFC document
+     */
+    public RFC(int rfcNumber, String title, String peerHostname) {
+        this.rfcNumber = rfcNumber;
+        this.title = title;
+        this.peerHostname = peerHostname;
+    }
+    public int getRfcNumber() {
+        return rfcNumber;
+    }
+    public void setRfcNumber(int rfcNumber) {
+        this.rfcNumber = rfcNumber;
+    }
+    public String getTitle() {
+        return title;
+    }
+    public void setTitle(String title) {
+        this.title = title;
+    }
+    public String getPeerHostname() {
+        return peerHostname;
+    }
+    public void setPeerHostname(String peerHostname) {
+        this.peerHostname = peerHostname;
+    }
+}
 }

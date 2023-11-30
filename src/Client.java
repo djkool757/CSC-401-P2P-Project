@@ -138,9 +138,9 @@ public class Client {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Enter your peer port: ");
-        Client peer = new Client("localhost", 7734, scanner.nextInt()); 
+        Client client = new Client("localhost", 7734, scanner.nextInt()); 
         scanner.close();
-        peer.joinP2PServer();
-        peer.executeCommand();
+        client.joinP2PServer();
+        client.executeCommand();
     }
 }
