@@ -71,8 +71,6 @@ public class Server {
                 Map<String, String> headers = parseRequest(request);
                 String method = headers.get("Method");
                 String rfcNumber = headers.get("RFCNumber");
-                String version = headers.get("Version");
-
                 String response;
                 if (method.equals("ADD")) {
                         response = handleAdd(rfcNumber, headers);
@@ -133,7 +131,6 @@ public class Server {
     }
 
     String handleGet(String rfcNumber, Map<String, String> headers) {
-        // Assume rfcNumber is valid and is an integer
         try {
             String rfcPath = "rfc" + rfcNumber + ".txt";
             BufferedReader fileReader = new BufferedReader(new FileReader(rfcPath));

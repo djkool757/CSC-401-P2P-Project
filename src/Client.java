@@ -31,7 +31,7 @@ public class Client {
             String[] parts = firstLine.split(":");
             String rfcNumber = parts[0].replace("RFC", "").trim();
             String title = parts[1].trim();
-            sendAddRequest(rfcNumber, title);
+            sendAdd(rfcNumber, title);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -70,17 +70,17 @@ public class Client {
         }
     }
 
-    public String sendAddRequest(String rfcNumber, String title) {
+    public String sendAdd(String rfcNumber, String title) {
         String request = formatRequest("ADD", rfcNumber, title);
         return sendRequest(request);
     }
 
-    public String sendLookupRequest(String rfcNumber, String title) {
+    public String sendLookup(String rfcNumber, String title) {
         String request = formatRequest("LOOKUP", rfcNumber, title);
         return sendRequest(request);
     }
 
-    public String sendListRequest() {
+    public String sendList() {
         String request = formatRequest("LIST", null, null);
         return sendRequest(request);
     }
@@ -102,13 +102,13 @@ public class Client {
                     String rfcNumber = consoleReader.readLine().trim();
                     System.out.print("Enter title of the RFC: ");
                     String title = consoleReader.readLine().trim();
-                    sendLookupRequest(rfcNumber, title);
+                    sendLookup(rfcNumber, title);
                 } else if ("LIST".equals(command)) {
-                    sendListRequest();
+                    sendList();
                 } else if ("GET".equals(command)) {
                     System.out.print("Enter RFC number to get: ");
                     String getRfcNumber = consoleReader.readLine().trim();
-                    sendGetRequest(getRfcNumber);
+                    sendGet(getRfcNumber);
                 } else if ("EXIT".equals(command)) {
                     System.out.println("Exiting...");
                     return;
@@ -122,7 +122,7 @@ public class Client {
     }
     
 
-    private void sendGetRequest(String getRfcNumber) {
+    private void sendGet(String getRfcNumber) {
         String request = formatRequest("GET", getRfcNumber, null);
         sendRequest(request);
     }
