@@ -1,29 +1,26 @@
 import java.io.*;
 import java.net.*;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class Server {
-    private String host = "0.0.0.0"; // BE OMNIPRESENT
+    private String host = "0.0.0.0";
     private int port = 7734;
     private ServerSocket serverSocket;
-    LinkedList<Peer> peersList;
-    LinkedList<RFC> rfcIndex; 
+    private List<Peer> peersList;
+    private List<RFC> rfcIndex;
     private ExecutorService executor;
 
     public Server() {
-        this.peersList = new LinkedList<>();
-        this.rfcIndex = new LinkedList<>();
-        this.executor = Executors.newFixedThreadPool(10); // Adjust the pool size as needed
+        this.peersList = new CopyOnWriteArrayList<>();
+        this.rfcIndex = new CopyOnWriteArrayList<>();
+        this.executor = Executors.newFixedThreadPool(10);
     }
 
     public void start() {
         try {
             serverSocket = new ServerSocket(port, 50, InetAddress.getByName(host));
-            System.out.println("Server listening on " + host + ":" + port);
+            System.out.println("Server is listening on " + host + " and port: " + port);
             while (true) {
                 Socket client = serverSocket.accept();
                 executor.execute(new ClientHandler(client));
@@ -51,57 +48,57 @@ public class Server {
     }
 
     private void handleClient(Socket clientSocket) throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()))) {
 
-        while (true) {
-            try {
+            while (true) {
                 StringBuilder requestBuilder = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null && !line.isEmpty()) {
                     requestBuilder.append(line).append("\r\n");
                 }
-                String request = requestBuilder.toString();
 
-                if (request.isEmpty()) {
-                    System.out.println("Client disconnected");
-                    break; // Client disconnected
-                }
+                String request = requestBuilder.toString();
+                System.out.println("Request from client:" + request);
 
                 Map<String, String> headers = parseRequest(request);
-                String method = headers.get("Method");
-                String rfcNumber = headers.get("RFCNumber");
+
+                if (headers.get("Method") == null) {
+                    System.out.println("Invalid request: " + request);
+                    writer.write("P2P-CI/1.0 400 Bad Request\r\n\r\n");
+                    writer.flush();
+                    continue;
+                }
+                String method = request.split(" ")[0];
+
                 String response;
-                if (method.equals("ADD")) {
+                switch (method) {
+                    case "ADD":
+                    String rfcNumber = request.split(" ")[2];
                         response = handleAdd(rfcNumber, headers);
                         break;
-                    }
-                    else if (method.equals("LOOKUP")) {
-                    response = handleLookup(rfcNumber, headers);
-                    break;
-                    }
-                    else if (method.equals("LIST")) {
+                    case "LOOKUP":
+                        rfcNumber = headers.get("RFCNumber");
+                        response = handleLookup(rfcNumber, headers);
+                        break;
+                    case "LIST":
                         response = handleList(headers);
                         break;
-                    }
-                    else if (method.equals("GET")) {
-                        response = handleGet(rfcNumber, headers);
+                    case "GET":
+                        rfcNumber = headers.get("RFCNumber");
+                        response = handleGet(rfcNumber);
                         break;
-                    }
-                    else {
-                        System.out.println("Unsupported method: " + method);
-                        response = "P2P-CI/1.0 400 Bad Request\r\n\r\n";
-                    }
-                    writer.write(response);
-                    writer.flush();
-            } catch (Exception e) {
-                e.printStackTrace();
-                break;
+                    default:
+                        continue;
+                }
+                writer.write(response);
+                writer.flush();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            clientSocket.close();
         }
-    }
-        reader.close();
-        writer.close();
-        clientSocket.close();
     }
 
     Map<String, String> parseRequest(String request) {
@@ -111,7 +108,6 @@ public class Server {
         String[] firstLineParts = lines[0].split(" ");
         headers.put("Method", firstLineParts[0]);
 
-        // RFC number is in the second position for ADD, LOOKUP, and GET
         if (firstLineParts.length > 2) {
             headers.put("RFCNumber", firstLineParts[2]);
         }
@@ -130,7 +126,7 @@ public class Server {
         return headers;
     }
 
-    String handleGet(String rfcNumber, Map<String, String> headers) {
+    String handleGet(String rfcNumber) {
         try {
             String rfcPath = "rfc" + rfcNumber + ".txt";
             BufferedReader fileReader = new BufferedReader(new FileReader(rfcPath));
@@ -164,13 +160,13 @@ public class Server {
 
         int rfcNum = Integer.parseInt(rfcNumber);
 
-        if (peersList.size() == 0) {
-            peersList.addFirst(new Peer(host, Integer.parseInt(port)));
+        if (peersList.isEmpty()) {
+            peersList.add(new Peer(host, Integer.parseInt(port)));
         } else {
             peersList.add(new Peer(host, Integer.parseInt(port)));
         }
 
-        rfcIndex.addFirst(new RFC(rfcNum, title, host));
+        rfcIndex.add(new RFC(rfcNum, title, host));
 
         return "P2P-CI/1.0 200 OK\r\n\r\nRFC " + rfcNumber + " " + title + " " + host + " " + port + "\r\n";
     }
@@ -182,28 +178,23 @@ public class Server {
 
         try {
             int rfcNum = Integer.parseInt(rfcNumber);
-            if (rfcIndex.size() == 0) {
+            if (rfcIndex.isEmpty()) {
                 return "P2P-CI/1.0 404 Not Found\r\n\r\n";
             }
-            RFC curr = rfcIndex.getFirst();
-            StringBuilder response = new StringBuilder("P2P-CI/1.0 404 Not Found\r\n\r\n");
-            while (curr != null) {
-                String[] record = headers.values().toArray(new String[0]);
-                if (Integer.parseInt(record[0]) == rfcNum) {
-                    String host = record[2];
+
+            for (RFC curr : rfcIndex) {
+                if (curr.getRfcNumber() == rfcNum) {
+                    String host = curr.getPeerHostname();
                     Peer p = getPeerByHost(host);
                     if (p != null) {
-                        String[] peerData = peersList.toArray(new String[0]);
-                        response = new StringBuilder("P2P-CI/1.0 200 OK\r\n\r\n");
-                        response.append("RFC ").append(rfcNum).append(" ").append(record[1]).append(" ")
-                                .append(host).append(" ").append(peerData[1]).append("\r\n");
-                        break;
+                        String response = "P2P-CI/1.0 200 OK\r\n\r\n" +
+                                "RFC " + rfcNum + " " + curr.getTitle() + " " +
+                                host + " " + p.getUploadPort() + "\r\n";
+                        return response;
                     }
                 }
-                int index = rfcIndex.indexOf(curr);
-                curr = (index == -1 || index == rfcIndex.size() - 1) ? null : rfcIndex.get(index + 1);
             }
-            return response.toString();
+            return "P2P-CI/1.0 404 Not Found\r\n\r\n";
         } catch (NumberFormatException e) {
             return "P2P-CI/1.0 400 Bad Request\r\n\r\n";
         }
@@ -212,19 +203,14 @@ public class Server {
     String handleList(Map<String, String> headers) {
         StringBuilder response = new StringBuilder("P2P-CI/1.0 200 OK\r\n\r\n");
 
-        RFC curr = rfcIndex.getFirst();
-        while (curr != null) {
-            String[] record = headers.values().toArray(new String[0]);
-            Peer peer = getPeerByHost(record[2]);
-
+        for (RFC curr : rfcIndex) {
+            Peer peer = getPeerByHost(curr.getPeerHostname());
             if (peer != null) {
-                  String[] peerData = peersList.toArray(new String[0]);
-                response.append("RFC ").append(record[0]).append(" ").append(record[1]).append(" ")
-                        .append(record[2]).append(" ").append(peerData[1]).append("\r\n");
-            } 
-            int index = rfcIndex.indexOf(curr);
-            curr = (index == -1 || index == rfcIndex.size() - 1) ? null : rfcIndex.get(index + 1);
+                response.append("RFC ").append(curr.getRfcNumber()).append(" ").append(curr.getTitle()).append(" ")
+                        .append(curr.getPeerHostname()).append(" ").append(peer.getUploadPort()).append("\r\n");
+            }
         }
+
         return response.toString();
     }
 
@@ -249,69 +235,4 @@ public class Server {
         Server server = new Server();
         server.start();
     }
-
-    class Peer {
-        private String hostname;
-        private int uploadPort;
-
-        public Peer(String hostname, int uploadPort) {
-            this.hostname = hostname;
-            this.uploadPort = uploadPort;
-        }
-
-        public String getHostname() {
-            return hostname;
-        }
-
-        public void setHostname(String hostname) {
-            this.hostname = hostname;
-        }
-
-        public int getUploadPort() {
-            return uploadPort;
-        }
-
-        public void setUploadPort(int uploadPort) {
-            this.uploadPort = uploadPort;
-        }
-    }
-
-    /**
- * Represents a Request for Comments (RFC) document.
- */
-class RFC {
-    private int rfcNumber;
-    private String title;
-    private String peerHostname;
-     /**
-     * Constructs an RFC object with the specified number, title, and hostname.
-     * 
-     * @param number   the RFC number
-     * @param title    the RFC title
-     * @param hostname the hostname of the server hosting the RFC document
-     */
-    public RFC(int rfcNumber, String title, String peerHostname) {
-        this.rfcNumber = rfcNumber;
-        this.title = title;
-        this.peerHostname = peerHostname;
-    }
-    public int getRfcNumber() {
-        return rfcNumber;
-    }
-    public void setRfcNumber(int rfcNumber) {
-        this.rfcNumber = rfcNumber;
-    }
-    public String getTitle() {
-        return title;
-    }
-    public void setTitle(String title) {
-        this.title = title;
-    }
-    public String getPeerHostname() {
-        return peerHostname;
-    }
-    public void setPeerHostname(String peerHostname) {
-        this.peerHostname = peerHostname;
-    }
-}
 }

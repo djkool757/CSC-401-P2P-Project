@@ -25,13 +25,14 @@ public class Client {
         }
     }
 
+    // Modified to align with the protocol
     public void addRfcFromFile(String filePath) {
-        try (BufferedReader fileReader = new BufferedReader(new FileReader(filePath))) {
+        try (BufferedReader fileReader = new BufferedReader(new FileReader(new File(filePath)))) {
             String firstLine = fileReader.readLine().trim();
             String[] parts = firstLine.split(":");
             String rfcNumber = parts[0].replace("RFC", "").trim();
             String title = parts[1].trim();
-            sendAdd(rfcNumber, title);
+            sendAddRequest(rfcNumber, title);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -46,7 +47,96 @@ public class Client {
         }
     }
 
-    public String sendRequest(String message) {
+    // Modified to align with the protocol
+    public String sendAddRequest(String rfcNumber, String title) {
+        String request = formatRequest("ADD", rfcNumber, title);
+        return sendRequest(request);
+    }
+
+    // Modified to align with the protocol
+    public String sendLookupRequest(String rfcNumber, String title) {
+        String request = formatRequest("LOOKUP", rfcNumber, title);
+        return sendRequest(request);
+    }
+
+    // Modified to align with the protocol
+    public String sendListRequest() {
+        String request = formatRequest("LIST", "ALL", null);
+        return sendRequest(request);
+    }
+
+    public void executeCommand() {
+        BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
+
+        while (true) {
+            try {
+                System.out.print("Enter command (ADD, LOOKUP, LIST, GET, EXIT): ");
+                String command = consoleReader.readLine().trim().toUpperCase();
+
+                if ("ADD".equals(command)) {
+                    System.out.print("Enter RFC number: ");
+                    String number = consoleReader.readLine().trim();
+                    System.out.print("Enter RFC title: ");
+                    String title = consoleReader.readLine().trim();
+                    sendAddRequest(number, title);
+                } else if ("LOOKUP".equals(command)) {
+                    System.out.print("Enter RFC number to lookup: ");
+                    String rfcNumber = consoleReader.readLine().trim();
+                    System.out.print("Enter title of the RFC: ");
+                    String title = consoleReader.readLine().trim();
+                    sendLookupRequest(rfcNumber, title);
+                } else if ("LIST".equals(command)) {
+                    sendListRequest();
+                } else if ("GET".equals(command)) {
+                    System.out.print("Enter RFC number to get: ");
+                    String getRfcNumber = consoleReader.readLine().trim();
+                    // Assuming sendGetRequest needs to be implemented based on the protocol
+                    // sendGetRequest(getRfcNumber);
+                    sendGet(clientSocket, getRfcNumber);
+                } else if ("EXIT".equals(command)) {
+                    System.out.println("Exiting...");
+                    return;
+                } else {
+                    System.out.println("Invalid command. Please try again.");
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Existing methods remain unchanged
+
+    private void sendGet(Socket s, String getRfcNumber) {
+        try {
+            // Assuming you need to send a GET request to the server
+            String request = "GET RFC " + getRfcNumber + " P2P-CI/1.0\r\n\r\n";
+            PrintWriter writer = new PrintWriter(s.getOutputStream(), true);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(s.getInputStream()));
+                // Send the GET request to the server
+                writer.write(request);
+                writer.flush();
+    
+                // Read and print the server's response
+                String responseLine;
+                while ((responseLine = reader.readLine()) != null) {
+                    System.out.println(responseLine);
+                }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+
+    private String formatRequest(String method, String rfcNumber, String title) {
+        String requestLine = String.format("%s RFC %s P2P-CI/1.0", method, rfcNumber);
+        String hostLine = String.format("Host: %s", hostname);
+        String portLine = String.format("Port: %d", uploadPort);
+        String titleLine = (title != null) ? String.format("Title: %s", title) : "";
+        return requestLine + "\r\n" + hostLine + "\r\n" + portLine + "\r\n" + titleLine + "\r\n\r\n";
+    }
+
+    private String sendRequest(String message) {
         try {
             PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true);
             BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -70,77 +160,11 @@ public class Client {
         }
     }
 
-    public String sendAdd(String rfcNumber, String title) {
-        String request = formatRequest("ADD", rfcNumber, title);
-        return sendRequest(request);
-    }
-
-    public String sendLookup(String rfcNumber, String title) {
-        String request = formatRequest("LOOKUP", rfcNumber, title);
-        return sendRequest(request);
-    }
-
-    public String sendList() {
-        String request = formatRequest("LIST", null, null);
-        return sendRequest(request);
-    }
-
-    public void executeCommand() {
-        BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
-    
-        while (true) {
-            try {
-                System.out.print("Enter command (ADD, LOOKUP, LIST, GET, EXIT): ");
-                String command = consoleReader.readLine().trim().toUpperCase();
-    
-                if ("ADD".equals(command)) {
-                    System.out.print("Enter RFC name (e.g., rfc1.txt): ");
-                    String rfcFileName = consoleReader.readLine().trim();
-                    addRfcFromFile(rfcFileName);
-                } else if ("LOOKUP".equals(command)) {
-                    System.out.print("Enter RFC number to lookup: ");
-                    String rfcNumber = consoleReader.readLine().trim();
-                    System.out.print("Enter title of the RFC: ");
-                    String title = consoleReader.readLine().trim();
-                    sendLookup(rfcNumber, title);
-                } else if ("LIST".equals(command)) {
-                    sendList();
-                } else if ("GET".equals(command)) {
-                    System.out.print("Enter RFC number to get: ");
-                    String getRfcNumber = consoleReader.readLine().trim();
-                    sendGet(getRfcNumber);
-                } else if ("EXIT".equals(command)) {
-                    System.out.println("Exiting...");
-                    return;
-                } else {
-                    System.out.println("Invalid command. Please try again.");
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    
-
-    private void sendGet(String getRfcNumber) {
-        String request = formatRequest("GET", getRfcNumber, null);
-        sendRequest(request);
-    }
-
-    private String formatRequest(String method, String rfcNumber, String title) {
-        String requestLine = String.format("%s RFC %s P2P-CI/1.0\r\n", method, rfcNumber);
-        String hostLine = String.format("Host: %s\r\n", hostname);
-        String portLine = String.format("Port: %d\r\n", uploadPort);
-        String titleLine = (title != null) ? String.format("Title: %s\r\n", title) : "";
-        return requestLine + hostLine + portLine + titleLine + "\r\n";
-    }
-
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         System.out.print("Enter your peer port: ");
-        Client client = new Client("localhost", 7734, scanner.nextInt()); 
-        scanner.close();
-        client.joinP2PServer();
-        client.executeCommand();
+        Client peer = new Client("localhost", 7734, scanner.nextInt());
+        peer.joinP2PServer();
+        peer.executeCommand();
     }
 }
